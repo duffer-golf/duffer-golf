@@ -284,26 +284,49 @@ function setStatus(state, msg) {
 }
 
 // ── FETCH FROM SHEET ──
+var lastGoodPlayers = null; // never wipe board on empty/bad fetch
+
 function fetchData() {
   setStatus('loading', 'Refreshing...');
 
-  // Cache-bust so Google doesn't serve stale CSV
+  // no-store ensures browser never serves a cached response
   var url = SHEET_CSV + '&cachebust=' + Date.now();
 
-  fetch(url)
+  fetch(url, { cache: 'no-store' })
     .then(function(res) {
       if (!res.ok) throw new Error('HTTP ' + res.status);
       return res.text();
     })
     .then(function(text) {
       var players = parseCSV(text);
-      renderBoard(players);
-      lastUpdated = new Date();
-      var t = lastUpdated.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',second:'2-digit'});
-      setStatus('ok', 'Live · Last updated ' + t + ' · ' + players.length + ' player' + (players.length !== 1 ? 's' : ''));
+
+      // Only update the board if we actually got players back
+      // This prevents a blank/stale Google response from wiping the leaderboard
+      if (players && players.length > 0) {
+        lastGoodPlayers = players;
+        renderBoard(players);
+        lastUpdated = new Date();
+        var t = lastUpdated.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',second:'2-digit'});
+        setStatus('ok', 'Live · Last updated ' + t + ' · ' + players.length + ' player' + (players.length !== 1 ? 's' : ''));
+      } else {
+        // Sheet returned empty — keep showing last good data, just note it
+        if (lastGoodPlayers) {
+          var t2 = lastUpdated ? lastUpdated.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',second:'2-digit'}) : '—';
+          setStatus('ok', 'Live · Holding last data from ' + t2 + ' · waiting for sheet update');
+        } else {
+          setStatus('ok', 'Connected · No entries in sheet yet');
+          renderBoard([]);
+        }
+      }
     })
     .catch(function(err) {
-      setStatus('err', 'Sheet unreachable — check connection · retrying in 15s');
+      // On error — keep showing last good data, never blank the board
+      if (lastGoodPlayers) {
+        var t3 = lastUpdated ? lastUpdated.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',second:'2-digit'}) : '—';
+        setStatus('err', 'Connection hiccup · Showing last data from ' + t3 + ' · retrying in 15s');
+      } else {
+        setStatus('err', 'Sheet unreachable — check connection · retrying in 15s');
+      }
       console.error('Fetch error:', err);
     });
 }
