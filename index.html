@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Duffer Golf — Closest to the Pin</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Mono:wght@400;500&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+:root {
+  --bg:      #1a2e1a;
+  --bg2:     #2d4a2d;
+  --bg3:     #3a5c3a;
+  --gold:    #c9a84c;
+  --gold-lt: #e8c96a;
+  --goldp:   #f5e6b8;
+  --cream:   #f4eedc;
+  --cream2:  #e8dfc8;
+  --white:   #faf8f2;
+  --silver:  #9badb7;
+  --bronze:  #b87333;
+}
+body {
+  background: var(--bg);
+  background-image:
+    radial-gradient(ellipse at 15% 50%, rgba(58,92,58,0.45) 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 15%, rgba(45,74,45,0.5) 0%, transparent 50%);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  font-family: 'Libre Baskerville', serif;
+  color: var(--cream);
+  overflow: hidden;
+}
+
+/* TICKER */
+.ticker { background:linear-gradient(90deg,var(--bg2),var(--bg3),var(--bg2)); border-bottom:1px solid rgba(201,168,76,0.25); padding:7px 0; overflow:hidden; white-space:nowrap; flex-shrink:0; }
+.ticker span { display:inline-block; animation:tick 40s linear infinite; font-family:'DM Mono',monospace; font-size:11px; letter-spacing:3px; color:var(--gold); opacity:0.7; text-transform:uppercase; padding-left:100%; }
+@keyframes tick { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+
+/* HEADER */
+header { text-align:center; padding:22px 40px 16px; border-bottom:1px solid rgba(201,168,76,0.3); background:linear-gradient(180deg,rgba(0,0,0,0.3) 0%,transparent 100%); flex-shrink:0; }
+.orn { display:flex; align-items:center; justify-content:center; gap:14px; margin-bottom:5px; }
+.orn-line { height:1px; width:90px; background:linear-gradient(90deg,transparent,var(--gold),transparent); }
+.brand { font-family:'Playfair Display',serif; font-size:52px; font-weight:900; letter-spacing:7px; text-transform:uppercase; color:var(--gold); text-shadow:0 2px 20px rgba(201,168,76,0.4); line-height:1; margin-bottom:4px; }
+.subtitle { font-style:italic; font-size:16px; color:var(--cream2); letter-spacing:3px; text-transform:uppercase; opacity:0.85; }
+.meta { display:flex; justify-content:center; gap:24px; margin-top:10px; font-family:'DM Mono',monospace; font-size:11px; letter-spacing:2px; color:var(--goldp); opacity:0.6; text-transform:uppercase; flex-wrap:wrap; }
+
+/* STATUS BAR */
+.statusbar { display:flex; align-items:center; justify-content:space-between; padding:8px 56px; background:rgba(0,0,0,0.2); border-bottom:1px solid rgba(201,168,76,0.1); flex-shrink:0; }
+.status-left { font-family:'DM Mono',monospace; font-size:10px; letter-spacing:2px; color:var(--gold); opacity:0.5; text-transform:uppercase; }
+.status-right { display:flex; align-items:center; gap:12px; }
+.refresh-btn { background:rgba(201,168,76,0.15); border:1px solid rgba(201,168,76,0.3); border-radius:3px; padding:5px 12px; font-family:'DM Mono',monospace; font-size:10px; letter-spacing:2px; color:var(--gold); text-transform:uppercase; cursor:pointer; transition:all 0.15s; }
+.refresh-btn:hover { background:rgba(201,168,76,0.28); }
+.dot { width:7px; height:7px; border-radius:50%; background:#90e890; box-shadow:0 0 6px #90e890; flex-shrink:0; }
+.dot.err { background:#f47070; box-shadow:0 0 6px #f47070; }
+.dot.loading { background:var(--gold); box-shadow:0 0 6px var(--gold); animation:blink 0.8s ease infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+/* MAIN */
+.main { flex:1; display:flex; flex-direction:column; padding:22px 56px 18px; overflow:hidden; }
+.tbl-label { font-family:'DM Mono',monospace; font-size:10px; letter-spacing:4px; text-transform:uppercase; color:var(--gold); opacity:0.5; margin-bottom:11px; text-align:center; }
+.col-head { display:grid; grid-template-columns:64px 1fr 160px; padding:0 18px 7px; font-family:'DM Mono',monospace; font-size:10px; letter-spacing:3px; text-transform:uppercase; color:var(--gold); opacity:0.38; border-bottom:1px solid rgba(201,168,76,0.16); margin-bottom:9px; }
+#board { flex:1; display:flex; flex-direction:column; gap:7px; overflow-y:auto; }
+#board::-webkit-scrollbar { width:3px; }
+#board::-webkit-scrollbar-thumb { background:rgba(201,168,76,0.22); border-radius:2px; }
+
+/* ROWS */
+.row { display:grid; grid-template-columns:64px 1fr 160px; align-items:center; padding:13px 18px; border-radius:5px; position:relative; overflow:hidden; }
+.row::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; }
+.row-1  { background:linear-gradient(90deg,rgba(201,168,76,0.2),rgba(201,168,76,0.04)); border:1px solid rgba(201,168,76,0.38); }
+.row-1::before  { background:var(--gold); box-shadow:0 0 10px var(--gold); }
+.row-2  { background:linear-gradient(90deg,rgba(155,173,183,0.13),rgba(155,173,183,0.02)); border:1px solid rgba(155,173,183,0.22); }
+.row-2::before  { background:var(--silver); }
+.row-3  { background:linear-gradient(90deg,rgba(184,115,51,0.13),rgba(184,115,51,0.02)); border:1px solid rgba(184,115,51,0.22); }
+.row-3::before  { background:var(--bronze); }
+.row-other { background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.05); }
+.row-other::before { background:transparent; }
+
+.r-rank { font-family:'Playfair Display',serif; font-weight:700; text-align:center; }
+.row-1 .r-rank     { font-size:26px; color:var(--gold);   text-shadow:0 0 14px rgba(201,168,76,0.6); }
+.row-2 .r-rank     { font-size:24px; color:var(--silver); }
+.row-3 .r-rank     { font-size:24px; color:var(--bronze); }
+.row-other .r-rank { font-size:17px; color:rgba(244,238,220,0.28); }
+
+.r-name { font-family:'Playfair Display',serif; font-weight:700; padding-left:10px; }
+.row-1 .r-name     { font-size:22px; color:var(--goldp); }
+.row-2 .r-name     { font-size:20px; color:var(--white); }
+.row-3 .r-name     { font-size:20px; color:var(--white); }
+.row-other .r-name { font-size:17px; color:rgba(244,238,220,0.68); }
+
+.r-dist { font-family:'DM Mono',monospace; font-weight:500; text-align:right; letter-spacing:1px; }
+.row-1 .r-dist     { font-size:26px; font-weight:700; color:var(--gold);   text-shadow:0 0 12px rgba(201,168,76,0.4); }
+.row-2 .r-dist     { font-size:22px; color:var(--silver); }
+.row-3 .r-dist     { font-size:22px; color:var(--bronze); }
+.row-other .r-dist { font-size:15px; color:rgba(244,238,220,0.48); }
+
+.divider { height:1px; background:linear-gradient(90deg,transparent,rgba(201,168,76,0.2),transparent); flex-shrink:0; margin:2px 0; }
+.empty { text-align:center; padding:60px 20px; font-style:italic; opacity:0.3; font-size:15px; }
+.err-msg { text-align:center; padding:40px 20px; color:#f4a0a0; font-family:'DM Mono',monospace; font-size:12px; letter-spacing:2px; opacity:0.7; }
+
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.45} }
+.crown { animation:pulse 2.5s ease infinite; display:inline-block; }
+</style>
+</head>
+<body>
+
+<div class="ticker">
+  <span>⛳ Duffer Golf Closest-to-the-Pin Challenge &nbsp;·&nbsp; $20 Entry &nbsp;·&nbsp; 4 Official Shots &nbsp;·&nbsp; Closest Distance Wins &nbsp;·&nbsp; Top 3 Win Duffer Golf Merchandise &nbsp;·&nbsp; Ask Staff to Enter &nbsp;·&nbsp; ⛳ Duffer Golf Closest-to-the-Pin Challenge &nbsp;·&nbsp; $20 Entry &nbsp;·&nbsp; 4 Official Shots &nbsp;·&nbsp; Closest Distance Wins &nbsp;·&nbsp; Top 3 Win Duffer Golf Merchandise &nbsp;·&nbsp; Ask Staff to Enter &nbsp;·&nbsp;</span>
+</div>
+
+<header>
+  <div class="orn"><div class="orn-line"></div><span>⛳</span><div class="orn-line"></div></div>
+  <div class="brand">Duffer Golf</div>
+  <div class="subtitle">Closest to the Pin Championship</div>
+  <div class="meta">
+    <span>Hoxie, Kansas</span><span>·</span>
+    <span id="hDate"></span><span>·</span>
+    <span id="hTime"></span>
+  </div>
+</header>
+
+<div class="statusbar">
+  <div class="status-left">
+    <span id="statusTxt">Connecting to sheet...</span>
+  </div>
+  <div class="status-right">
+    <span id="statusDot" class="dot loading"></span>
+    <button class="refresh-btn" onclick="fetchData()">↻ Refresh Now</button>
+  </div>
+</div>
+
+<div class="main">
+  <div class="tbl-label">Live Leaderboard — Closest to the Pin</div>
+  <div class="col-head"><span>Rank</span><span>Player</span><span style="text-align:right">Best Shot</span></div>
+  <div id="board"><div class="empty">Loading data from sheet...</div></div>
+</div>
+
+<script>
+var SHEET_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRHe7w8_uLY2MeyBbHQhDDiQrEj_QoYzXSXHyb2dkwv80iT0lc9R8-Idw1iPIMwZVYH8FAr_B75Mi67/pub?output=csv";
+var REFRESH_MS = 15000;
+var refreshTimer = null;
+var lastUpdated = null;
+
+// ── CLOCK ──
+function tickClock() {
+  var n = new Date();
+  document.getElementById('hTime').textContent = n.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+  document.getElementById('hDate').textContent = n.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+}
+tickClock();
+setInterval(tickClock, 15000);
+
+// ── PARSE DISTANCE → inches (lower = better) ──
+// Column I in the sheet is "Best Distance"
+// Accepts: "3'2\"", "3 2", "42", "3.5", "42in", decimal feet
+function toInches(s) {
+  if (!s && s !== 0) return 999999;
+  s = String(s).trim();
+  if (s === '' || s === '-' || s.toLowerCase() === 'n/a') return 999999;
+
+  // normalize quotes
+  s = s.replace(/[\u2018\u2019\u02bc\u0060\u00b4']/g, "'").replace(/[\u201c\u201d"]/g, '"');
+
+  var m;
+  // "3'2\"" or "3'2"
+  m = s.match(/^(\d+)'(\d+)"?$/);
+  if (m) return +m[1]*12 + +m[2];
+  // "3 2" spaces
+  m = s.match(/^(\d+)\s+(\d+)$/);
+  if (m) return +m[1]*12 + +m[2];
+  // bare number or decimal → treat as inches if <24, else feet*12
+  m = s.match(/^([\d.]+)"?$/);
+  if (m) return Math.round(parseFloat(m[1]));
+  // "3ft 2in" or "3ft2in"
+  m = s.match(/(\d+)\s*ft\s*(\d+)/i);
+  if (m) return +m[1]*12 + +m[2];
+  // "3ft"
+  m = s.match(/^(\d+)\s*ft$/i);
+  if (m) return +m[1]*12;
+
+  return 999999;
+}
+
+function fmtDist(s) {
+  // Show as-entered from the sheet (already formatted by the user)
+  if (!s || s.toString().trim() === '') return '—';
+  return s.toString().trim();
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── PARSE CSV ──
+function parseCSV(text) {
+  var lines = text.trim().split('\n');
+  if (lines.length < 2) return [];
+
+  // Skip header row (row 0), parse data rows
+  var players = [];
+  for (var i = 1; i < lines.length; i++) {
+    var cols = splitCSVLine(lines[i]);
+    // Columns (0-indexed, after removing Entry # col):
+    // 0=Time, 1=FirstName, 2=LastName, 3=Group/Team,
+    // 4=Shot1, 5=Shot2, 6=Shot3, 7=Shot4, 8=BestDistance,
+    // 9=Handicap, 10=Paid, 11=PaymentType,
+    // 12=Top10, 13=Top3, 14=GoodClip, 15=Notes
+
+    var first = (cols[1] || '').trim();
+    var last  = (cols[2] || '').trim();
+    var best  = (cols[8] || '').trim();
+
+    // Skip blank rows
+    if (!first && !last) continue;
+    if (!best || best === '') continue;
+
+    players.push({
+      name: (first + ' ' + last).trim(),
+      dist: best,
+      inches: toInches(best)
+    });
+  }
+
+  // Sort ascending — lowest inches = closest = rank 1
+  players.sort(function(a,b){ return a.inches - b.inches; });
+  return players;
+}
+
+// Handles quoted CSV fields with commas inside
+function splitCSVLine(line) {
+  var cols = [];
+  var cur = '';
+  var inQ = false;
+  for (var i = 0; i < line.length; i++) {
+    var c = line[i];
+    if (c === '"') { inQ = !inQ; }
+    else if (c === ',' && !inQ) { cols.push(cur); cur = ''; }
+    else { cur += c; }
+  }
+  cols.push(cur);
+  return cols;
+}
+
+// ── RENDER LEADERBOARD ──
+function renderBoard(players) {
+  var board = document.getElementById('board');
+
+  if (!players || players.length === 0) {
+    board.innerHTML = '<div class="empty">No entries yet — add data to the Google Sheet</div>';
+    return;
+  }
+
+  var html = '';
+  for (var i = 0; i < players.length; i++) {
+    var p    = players[i];
+    var rank = i + 1;
+
+    if (rank === 4) html += '<div class="divider"></div>';
+
+    var cls, badge, nameHtml;
+    if      (rank === 1) { cls='row row-1'; badge='1'; nameHtml=esc(p.name)+' <span class="crown">👑</span>'; }
+    else if (rank === 2) { cls='row row-2'; badge='2'; nameHtml=esc(p.name)+' <span>🥈</span>'; }
+    else if (rank === 3) { cls='row row-3'; badge='3'; nameHtml=esc(p.name)+' <span>🥉</span>'; }
+    else                 { cls='row row-other'; badge=rank; nameHtml=esc(p.name); }
+
+    html += '<div class="'+cls+'">'
+          +   '<div class="r-rank">'+badge+'</div>'
+          +   '<div class="r-name">'+nameHtml+'</div>'
+          +   '<div class="r-dist">'+esc(fmtDist(p.dist))+'</div>'
+          + '</div>';
+  }
+  board.innerHTML = html;
+}
+
+// ── STATUS UI ──
+function setStatus(state, msg) {
+  var dot = document.getElementById('statusDot');
+  var txt = document.getElementById('statusTxt');
+  dot.className = 'dot';
+  if (state === 'ok')      { dot.classList.add(''); txt.textContent = msg; }
+  if (state === 'loading') { dot.classList.add('loading'); txt.textContent = msg; }
+  if (state === 'err')     { dot.classList.add('err');     txt.textContent = msg; }
+}
+
+// ── FETCH FROM SHEET ──
+function fetchData() {
+  setStatus('loading', 'Refreshing...');
+
+  // Cache-bust so Google doesn't serve stale CSV
+  var url = SHEET_CSV + '&cachebust=' + Date.now();
+
+  fetch(url)
+    .then(function(res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.text();
+    })
+    .then(function(text) {
+      var players = parseCSV(text);
+      renderBoard(players);
+      lastUpdated = new Date();
+      var t = lastUpdated.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',second:'2-digit'});
+      setStatus('ok', 'Live · Last updated ' + t + ' · ' + players.length + ' player' + (players.length !== 1 ? 's' : ''));
+    })
+    .catch(function(err) {
+      setStatus('err', 'Sheet unreachable — check connection · retrying in 15s');
+      console.error('Fetch error:', err);
+    });
+}
+
+// ── AUTO REFRESH ──
+function startAutoRefresh() {
+  if (refreshTimer) clearInterval(refreshTimer);
+  refreshTimer = setInterval(fetchData, REFRESH_MS);
+}
+
+// ── INIT ──
+fetchData();
+startAutoRefresh();
+</script>
+</body>
+</html>
